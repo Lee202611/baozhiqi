@@ -26,17 +26,19 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
 
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
 
-      - name: 安装 Bubblewrap CLI
-        run: npm i -g @bubblewrap/cli
+      - name: 安装依赖与 Bubblewrap CLI
+        run: |
+          npm i -g @bubblewrap/cli
+          bubblewrap --version || true
 
-      - name: 写 Bubblewrap 配置（JDK/SDK 路径）
+      - name: 写 Bubblewrap 配置
         run: |
           mkdir -p ~/.bubblewrap
           cat > ~/.bubblewrap/config.json <<EOF
@@ -45,13 +47,15 @@ jobs:
             "androidSdkPath": "$ANDROID_HOME"
           }
           EOF
-          echo "config.json:"; cat ~/.bubblewrap/config.json
+          cat ~/.bubblewrap/config.json
 
-      - name: 准备工程目录与 twa-manifest.json
-        working-directory: android
+      - name: 建工程、生成密钥、构建签名 APK
         run: |
-          mkdir -p android
-          cd android
+          set -e
+          BUILD="$GITHUB_WORKSPACE/build"
+          mkdir -p "$BUILD"
+          cd "$BUILD"
+
           cat > twa-manifest.json <<'EOF'
           {
             "packageId": "com.lee.baozhiqi",
@@ -72,40 +76,33 @@ jobs:
             "targetSdkVersion": 34
           }
           EOF
-          node -e "const fs=require('fs');const p='twa-manifest.json';const m=JSON.parse(fs.readFileSync(p));m.appVersionName='${{ github.event.inputs.version_name }}';m.appVersionCode=parseInt('${{ github.event.inputs.version_code }}')||1;fs.writeFileSync(p,JSON.stringify(m,null,2));"
+          node -e "const fs=require('fs');const m=JSON.parse(fs.readFileSync('twa-manifest.json'));m.appVersionName='${{ github.event.inputs.version_name }}';m.appVersionCode=parseInt('${{ github.event.inputs.version_code }}')||1;fs.writeFileSync('twa-manifest.json',JSON.stringify(m,null,2));"
 
-      - name: 生成签名密钥（存在则复用）
-        working-directory: android/android
-        run: |
-          if [ -f android.keystore ]; then echo "复用已有 keystore"; else
-            keytool -genkeypair -v -keystore android.keystore -alias "$KEY_ALIAS" \
-              -keyalg RSA -keysize 2048 -validity 10000 \
-              -storepass "$KEYSTORE_PASS" -keypass "$KEYSTORE_PASS" \
-              -dname "CN=Baozhiqi, OU=App, O=Lee, L=Shenzhen, ST=Guangdong, C=CN"
-          fi
+          keytool -genkeypair -v -keystore android.keystore -alias "$KEY_ALIAS" \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass "$KEYSTORE_PASS" -keypass "$KEYSTORE_PASS" \
+            -dname "CN=Baozhiqi, OU=App, O=Lee, L=Shenzhen, ST=Guangdong, C=CN"
 
-      - name: 生成工程并构建签名 APK
-        working-directory: android/android
-        run: |
           yes | bubblewrap update --skipVersionUpgrade || true
           bubblewrap build --skipPwaValidation
 
-      - name: 验证签名
-        working-directory: android/android
+          echo "---- 产物 ----"
+          ls -la "$BUILD"
+
+      - name: 验证签名并生成指纹
         run: |
-          APK=$(ls app-release-signed.apk 2>/dev/null || true)
-          if [ -n "$APK" ]; then
+          cd "$GITHUB_WORKSPACE/build"
+          if [ -f app-release-signed.apk ]; then
             APKSIGNER=$(find $ANDROID_HOME/build-tools -name apksigner | sort | tail -1)
             "$APKSIGNER" verify --verbose --print-certs app-release-signed.apk || true
-            keytool -list -v -keystore android.keystore -alias "$KEY_ALIAS" -storepass "$KEYSTORE_PASS" | grep SHA256 | head -1 > fingerprint.txt
+            keytool -list -v -keystore android.keystore -alias "$KEY_ALIAS" -storepass "$KEYSTORE_PASS" | grep SHA256 | head -1 > fingerprint.txt || true
           fi
-          ls -la
 
       - name: 上传产物
         uses: actions/upload-artifact@v4
         with:
           name: 保质期管家-签名APK
           path: |
-            android/android/app-release-signed.apk
-            android/android/android.keystore
-            android/android/fingerprint.txt
+            build/app-release-signed.apk
+            build/android.keystore
+            build/fingerprint.txt
