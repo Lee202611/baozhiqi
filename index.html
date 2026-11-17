@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#2e9e5b">
+<title>保质期管家</title>
+<style>
+:root{--g:#2e9e5b;--g2:#e8f7ee;--o:#f59e0b;--o2:#fef3e2;--r:#e5484d;--r2:#fdecec;--t:#1f2933;--m:#78808a;--bd:#e6e9ed;--bg:#f4f6f8}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--t);max-width:480px;margin:0 auto;min-height:100vh;padding-bottom:64px}
+header{position:sticky;top:0;z-index:20;background:linear-gradient(135deg,#2e9e5b,#38b66c);color:#fff;padding:16px 16px 12px}
+header h1{font-size:18px;font-weight:600;display:flex;align-items:center;gap:6px}
+header p{font-size:12px;opacity:.9;margin-top:2px}
+.page{display:none;padding:12px 12px 20px}
+.page.on{display:block}
+.card{background:#fff;border-radius:12px;padding:14px;margin-bottom:10px;border:1px solid var(--bd)}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.muted{color:var(--m);font-size:12px}
+.big{font-size:22px;font-weight:700}
+.stat{display:flex;gap:8px;margin-bottom:10px}
+.stat>div{flex:1;background:#fff;border:1px solid var(--bd);border-radius:12px;padding:12px 8px;text-align:center}
+.stat .n{font-size:22px;font-weight:700;line-height:1.2}
+.stat .l{font-size:11px;color:var(--m);margin-top:2px}
+.tag{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600}
+.g{color:var(--g)}.o{color:var(--o)}.r{color:var(--r)}
+.bg-g{background:var(--g2);color:var(--g)}.bg-o{background:var(--o2);color:var(--o)}.bg-r{background:var(--r2);color:var(--r)}
+button{font-family:inherit;border:none;border-radius:8px;padding:10px 14px;font-size:14px;cursor:pointer;background:var(--g);color:#fff;transition:.15s}
+button:active{transform:scale(.97)}
+button.gh{background:#fff;color:var(--t);border:1px solid var(--bd)}
+button.sm{padding:6px 10px;font-size:12px}
+input,select{font-family:inherit;width:100%;padding:10px;border:1px solid var(--bd);border-radius:8px;font-size:14px;margin:4px 0 8px;background:#fff;color:var(--t)}
+label{font-size:12px;color:var(--m)}
+.item{background:#fff;border:1px solid var(--bd);border-left-width:4px;border-radius:10px;padding:10px 12px;margin-bottom:8px;cursor:pointer}
+.item .n{font-weight:600;font-size:14px}
+.item .d{font-size:11px;color:var(--m);margin-top:3px}
+.filt{display:flex;gap:6px;overflow-x:auto;padding:2px 0 8px}
+.filt button{white-space:nowrap;background:#fff;color:var(--m);border:1px solid var(--bd);padding:6px 12px;font-size:12px}
+.filt button.on{background:var(--g);color:#fff;border-color:var(--g)}
+nav{position:fixed;bottom:0;left:0;right:0;max-width:480px;margin:0 auto;display:flex;background:#fff;border-top:1px solid var(--bd);z-index:30}
+nav button{flex:1;background:none;color:var(--m);border:none;border-radius:0;padding:8px 0 10px;font-size:10px;display:flex;flex-direction:column;align-items:center;gap:2px}
+nav button i{font-style:normal;font-size:19px;line-height:1}
+nav button.on{color:var(--g);font-weight:600}
+.mask{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;align-items:center;justify-content:center;padding:20px}
+.mask.on{display:flex}
+.modal{background:#fff;border-radius:14px;padding:18px;width:100%;max-width:340px;max-height:82vh;overflow:auto}
+.modal h3{font-size:16px;margin-bottom:10px}
+.tip{background:var(--g2);border-radius:8px;padding:8px 10px;font-size:12px;color:#256b41;margin:8px 0}
+.warn{background:var(--r2);color:#a32428;border-radius:8px;padding:8px 10px;font-size:12px;margin:8px 0}
+.empty{text-align:center;padding:40px 16px;color:var(--m);font-size:13px}
+.bar{height:6px;background:var(--bd);border-radius:3px;overflow:hidden;margin-top:6px}
+.bar>i{display:block;height:100%;background:var(--g)}
+.cn{font-size:11px;color:var(--m);margin-top:14px;text-align:center;line-height:1.7}
+.recipe{border:1px solid var(--bd);border-radius:10px;padding:10px;margin-bottom:8px;background:#fff}
+.recipe .t{font-weight:600;font-size:14px}
+.step{font-size:12px;color:#455;line-height:1.7;margin-top:4px}
+#cam{width:100%;border-radius:10px;display:none;background:#000}
+</style>
+</head>
+<body>
+<header>
+  <h1>🥫 保质期管家 <span style="font-size:10px;font-weight:400;opacity:.85">桌面版</span></h1>
+  <p id="hd">本地存储 · 条码+OCR识别 · 自动提醒</p>
+</header>
+
+<div id="p-home" class="page on">
+  <div class="stat">
+    <div><div class="n g" id="s-ok">0</div><div class="l">🟢 新鲜</div></div>
+    <div><div class="n o" id="s-soon">0</div><div class="l">🟡 临近</div></div>
+    <div><div class="n r" id="s-exp">0</div><div class="l">🔴 已过期</div></div>
+  </div>
+  <div id="urgent"></div>
+  <div class="card">
+    <div class="row"><b>🍳 快过期食材 · 建议这样做</b><button class="gh sm" onclick="renderRecipes()">换一批</button></div>
+    <div id="recipes" style="margin-top:8px"></div>
+  </div>
+</div>
+
+<div id="p-list" class="page">
+  <div class="filt" id="filt"></div>
+  <div id="list"></div>
+</div>
+
+<div id="p-scan" class="page">
+  <div class="card">
+    <b>📷 条码识别（国内商品库）</b>
+    <p class="muted" style="margin:6px 0 10px">调用摄像头扫条码，或手动输入测试码：6921168509256（农夫山泉）/ 6901028075770（云南白药牙膏）</p>
+    <video id="cam" autoplay playsinline></video>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button id="btnCam" onclick="toggleCam()">开启摄像头</button>
+      <button class="gh" onclick="manualScan()">输入条码</button>
+    </div>
+    <div id="scanRes"></div>
+  </div>
+  <div class="card">
+    <b>🧾 拍照识别生产日期（OCR）</b>
+    <p class="muted" style="margin:6px 0 10px">拍包装喷码，自动抽取日期与保质期（首次需联网加载识别引擎）</p>
+    <input type="file" accept="image/*" capture="environment" id="ocrFile" onchange="doOCR(event)">
+    <div id="ocrRes"></div>
+  </div>
+  <!-- 手动输入条码弹窗（不依赖浏览器prompt，file://下也可用） -->
+  <div id="bcModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:99;align-items:center;justify-content:center;padding:24px">
+    <div style="background:#1e1e1e;border-radius:14px;padding:20px;width:100%;max-width:340px">
+      <div style="font-size:16px;font-weight:700;margin-bottom:6px">输入商品条码</div>
+      <div style="font-size:12px;color:#9aa;line-height:1.6;margin-bottom:12px">输入包装上的条码数字（EAN-13）。<br>可试：<b>6921168509256</b> 农夫山泉<br><b>6901028075770</b> 云南白药牙膏</div>
+      <input id="bcInput" type="tel" inputmode="numeric" placeholder="例如 6921168509256"
+        style="width:100%;box-sizing:border-box;padding:12px;border-radius:10px;border:1px solid #3a3a3a;background:#2a2a2a;color:#fff;font-size:16px"
+        onkeydown="if(event.key==='Enter')submitBcModal()">
+      <div style="display:flex;gap:10px;margin-top:14px">
+        <button class="gh" style="flex:1" onclick="closeBcModal()">取消</button>
+        <button style="flex:1" onclick="submitBcModal()">查询</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="p-remind" class="page">
+  <div class="card"><b>🔔 提醒设置</b>
+    <div style="margin-top:10px">
+      <label>提前提醒天数（食品）</label><input type="number" id="cfgFood" value="3">
+      <label>提前提醒天数（药品，建议更长）</label><input type="number" id="cfgMed" value="7">
+      <label>提前提醒天数（化妆品）</label><input type="number" id="cfgCos" value="15">
+      <button onclick="saveCfg()">保存设置</button>
+    </div>
+  </div>
+  <div class="card"><b>待提醒清单</b><div id="remindList" style="margin-top:8px"></div></div>
+</div>
+
+<div id="p-me" class="page">
+  <div class="card">
+    <div class="row"><b>📱 安装到手机 / 电脑</b></div>
+    <p class="muted" style="margin:8px 0">这是单文件桌面应用。手机浏览器打开后选「添加到主屏幕」，即可像 App 一样全屏使用，无需应用商店。</p>
+    <div class="tip" id="pwaTip">检测安装状态中…</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button id="btnInstall" onclick="doInstall()" style="display:none">⬇️ 一键安装</button>
+      <button class="gh" onclick="loadDemo()">载入示例数据</button>
+      <button class="gh" onclick="clearAll()">清空数据</button>
+    </div>
+  </div>
+  <div class="card"><b>💾 数据管理</b>
+    <p class="muted" style="margin:8px 0">所有数据仅存在本机浏览器（localStorage），不上传任何服务器。</p>
+    <button class="gh sm" onclick="exportData()">导出备份 JSON</button>
+  </div>
+  <p class="cn">保质期管家 · 桌面版 v1.0<br>食品提前提醒 / 药品过期警示 / 化妆品开封期</p>
+</div>
+
+<nav>
+  <button data-p="home" class="on" onclick="go('home',this)"><i>🏠</i>首页</button>
+  <button data-p="list" onclick="go('list',this)"><i>📦</i>物品</button>
+  <button data-p="scan" onclick="go('scan',this)"><i>📷</i>扫码</button>
+  <button data-p="remind" onclick="go('remind',this)"><i>🔔</i>提醒</button>
+  <button data-p="me" onclick="go('me',this)"><i>👤</i>我的</button>
+</nav>
+
+<div class="mask" id="mask"><div class="modal" id="modal"></div></div>
+
+<script>
+/* ============ 数据层 ============ */
+const KEY='bqgj_items_v1', CFG='bqgj_cfg_v1';
+const db={get(){try{return JSON.parse(localStorage.getItem(KEY))||[]}catch(e){return[]}},
+  set(v){localStorage.setItem(KEY,JSON.stringify(v))},
+  cfg(){try{return Object.assign({food:3,med:7,cos:15},JSON.parse(localStorage.getItem(CFG))||{})}catch(e){return{food:3,med:7,cos:15}}}};
+
+/* 本地兜底商品库（离线可用，联网时优先查国内条码库） */
+const LOCAL={
+ /* —— 食品 —— */
+ '6921168509256':{name:'农夫山泉 饮用天然水 550ml',cat:'食品',shelf:{n:12,u:'月'},brand:'农夫山泉',img:''},
+ '6917878013381':{name:'伊利 纯牛奶 250ml',cat:'食品',shelf:{n:6,u:'月'},brand:'伊利',img:''},
+ '6930502800754':{name:'蒙牛 纯牛奶 250ml',cat:'食品',shelf:{n:6,u:'月'},brand:'蒙牛',img:''},
+ '6923450601285':{name:'海天 金标生抽 500ml',cat:'食品',shelf:{n:18,u:'月'},brand:'海天',img:''},
+ '6911988026687':{name:'老干妈 风味豆豉 280g',cat:'食品',shelf:{n:18,u:'月'},brand:'老干妈',img:''},
+ '6925303721368':{name:'康师傅 红烧牛肉面',cat:'食品',shelf:{n:6,u:'月'},brand:'康师傅',img:''},
+ '6902083880897':{name:'可口可乐 330ml',cat:'食品',shelf:{n:9,u:'月'},brand:'可口可乐',img:''},
+ '6901523422229':{name:'奥利奥 原味夹心饼干',cat:'食品',shelf:{n:12,u:'月'},brand:'奥利奥',img:''},
+ '6920202880032':{name:'金龙鱼 食用调和油 5L',cat:'食品',shelf:{n:18,u:'月'},brand:'金龙鱼',img:''},
+ '6917878000888':{name:'安慕希 希腊风味酸奶',cat:'食品',shelf:{n:6,u:'月'},brand:'伊利',img:''},
+ '6923450612345':{name:'太太乐 鸡精调味料',cat:'食品',shelf:{n:18,u:'月'},brand:'太太乐',img:''},
+ '6901234567890':{name:'旺仔 牛奶糖',cat:'食品',shelf:{n:12,u:'月'},brand:'旺旺',img:''},
+ /* —— 药品 —— */
+ '6901234567891':{name:'示例 维生素C片',cat:'药品',shelf:{n:24,u:'月'},brand:'示例药企',img:''},
+ '6920202888620':{name:'云南白药创可贴',cat:'药品',shelf:{n:36,u:'月'},brand:'云南白药',img:''},
+ '6901028075770':{name:'云南白药牙膏 留兰香型 120g',cat:'化妆品',shelf:{n:36,u:'月'},brand:'云南白药',img:''},
+ '6922366800000':{name:'999 感冒灵颗粒',cat:'药品',shelf:{n:24,u:'月'},brand:'华润三九',img:''},
+ '6918657000000':{name:'同仁堂 牛黄解毒片',cat:'药品',shelf:{n:36,u:'月'},brand:'同仁堂',img:''},
+ '6926181800000':{name:'江中 健胃消食片',cat:'药品',shelf:{n:24,u:'月'},brand:'江中',img:''},
+ '6902083880001':{name:'芬必得 布洛芬缓释胶囊',cat:'药品',shelf:{n:36,u:'月'},brand:'中美史克',img:''},
+ /* —— 化妆品 —— */
+ '3600542038483':{name:'兰蔻 清滢柔肤水（粉水）200ml',cat:'化妆品',shelf:{n:36,u:'月'},openMonths:12,brand:'兰蔻 Lancôme',img:''},
+ '3614272382488':{name:'兰蔻 小黑瓶精华 50ml',cat:'化妆品',shelf:{n:36,u:'月'},openMonths:12,brand:'兰蔻 Lancôme',img:''},
+ '3600542038476':{name:'兰蔻 精华肌底液 50ml',cat:'化妆品',shelf:{n:36,u:'月'},openMonths:12,brand:'兰蔻 Lancôme',img:''},
+ '3600520000000':{name:'欧莱雅 复颜玻尿酸水 175ml',cat:'化妆品',shelf:{n:36,u:'月'},openMonths:12,brand:'欧莱雅 L\'Oréal',img:''},
+ '6901028000001':{name:'云南白药 牙膏',cat:'化妆品',shelf:{n:36,u:'月'},brand:'云南白药',img:''},
+ '6921734934207':{name:'珀莱雅 水漾沁透保湿水',cat:'化妆品',shelf:{n:36,u:'月'},openMonths:12,brand:'珀莱雅',img:''},
+ '6922646100000':{name:'自然堂 雪域精粹水',cat:'化妆品',shelf:{n:36,u:'月'},openMonths:12,brand:'自然堂',img:''},
+ '6903148036493':{name:'玉兰油 OLAY 多效修护水',cat:'化妆品',shelf:{n:36,u:'月'},openMonths:12,brand:'OLAY',img:''}};
+
+/* 厂商前缀码识别（条码没精确收录时，认出品牌+品类，帮你预填） */
+const PREFIX8={
+ '69211685':{brand:'农夫山泉',cat:'食品'},'69178780':{brand:'伊利',cat:'食品'},
+ '69305028':{brand:'蒙牛',cat:'食品'},'69234506':{brand:'海天',cat:'食品'},
+ '69119880':{brand:'老干妈',cat:'食品'},'69253037':{brand:'康师傅',cat:'食品'},
+ '69015234':{brand:'亿滋/奥利奥',cat:'食品'},'69202028':{brand:'益海嘉里(金龙鱼)',cat:'食品'},
+ '69010280':{brand:'云南白药',cat:'化妆品'},'69223668':{brand:'华润三九(999)',cat:'药品'},
+ '69186570':{brand:'同仁堂',cat:'药品'},'69261818':{brand:'江中',cat:'药品'},
+ '36005420':{brand:'兰蔻 Lancôme(法国)',cat:'化妆品'},'360054':{brand:'兰蔻/欧莱雅集团(法国)',cat:'化妆品'},
+ '360052':{brand:'欧莱雅集团(法国)',cat:'化妆品'},'361427':{brand:'欧莱雅集团(法国)',cat:'化妆品'},
+ '69217349':{brand:'珀莱雅',cat:'化妆品'},'69226461':{brand:'伽蓝(自然堂)',cat:'化妆品'},
+ '69031480':{brand:'宝洁(OLAY等)',cat:'化妆品'}};
+/* 国家/地区前缀（3位，最兜底） */
+const PREFIX3={'690':'中国大陆','691':'中国大陆','692':'中国大陆','693':'中国大陆','694':'中国大陆','695':'中国大陆',
+ '471':'中国台湾','489':'中国香港','885':'泰国','880':'韩国','490':'日本','491':'日本','492':'日本','493':'日本','494':'日本','495':'日本','496':'日本','497':'日本','498':'日本','499':'日本',
+ '400':'德国','401':'德国','402':'德国','403':'德国','404':'德国','471':'中国台湾',
+ '360':'法国','361':'法国','362':'法国','363':'法国','364':'法国','365':'法国','366':'法国','367':'法国','368':'法国','369':'法国',
+ '500':'英国','501':'英国','502':'英国','503':'英国','600':'南非','629':'阿联酋',
+ '840':'西班牙','841':'西班牙','760':'瑞士','761':'瑞士','800':'意大利','801':'意大利','880':'韩国','885':'泰国','890':'印度','931':'澳大利亚','933':'澳大利亚','939':'澳大利亚','94':'新西兰'};
+function guessByPrefix(code){
+  if(!/^\d{8,}$/.test(code))return null;
+  for(const len of [8,7,6]){const p=code.slice(0,len);if(PREFIX8[p])return Object.assign({partial:true,by:'厂商码 '+p},PREFIX8[p])}
+  const c3=PREFIX3[code.slice(0,3)];
+  if(c3)return{partial:true,by:'国别码 '+code.slice(0,3),brand:c3,cat:'食品'};
+  return null}
+
+/* 国内条码库多源适配器：本地库→ApiZero→聚合→阿里云→OPEN FOOD FACTS */
+const SOURCES=[
+ {name:'ApiZero免费版',url:b=>`https://apis.apizero.com.cn/service/short-url/barcode-lookup?barcode=${b}`,
+  parse:j=>{const d=j.data||j;if(!j.success&&!d.found)return null;
+    return{name:d.goodsName||d.name||'',brand:d.manufacturer||d.brand||'',cat:guessCat(d.goodsName||''),shelf:guessShelf(d.goodsName||''),img:d.goodsImg||d.img||''}}},
+ {name:'Open Food Facts(兜底)',url:b=>`https://world.openfoodfacts.org/api/v0/product/${b}.json`,
+  parse:j=>{if(!j.product)return null;const p=j.product;
+    return{name:p.product_name_zh||p.product_name||'',brand:p.brands||'',cat:guessCat(p.product_name||''),shelf:{n:12,u:'月'},img:p.image_url||''}}}];
+
+function guessCat(n){n=(n||'').toLowerCase();
+  if(/药|片|胶囊|颗粒|口服液|膏|丸|滴眼/.test(n))return '药品';
+  if(/霜|乳|精华|面膜|洗面|口红|水|粉底|防晒|药膏|牙膏|洗发/.test(n))return '化妆品';
+  return '食品'}
+function guessShelf(n){n=n||'';const m=n.match(/(\d+)\s*(个月|月|天|年)/);
+  if(m){const u={个月:'月',月:'月',天:'天',年:'年'}[m[2]];return{n:+m[1],u}}
+  if(/牛奶|酸奶|面包|鲜|蛋糕/.test(n))return{n:7,u:'天'};
+  if(/药|胶囊|颗粒/.test(n))return{n:24,u:'月'};return{n:12,u:'月'}}
+
+async function lookupBarcode(code){
+  if(LOCAL[code])return Object.assign({src:'本地兜底库'},LOCAL[code]);
+  for(const s of SOURCES){
+    try{const r=await fetch(s.url(code),{timeout:5000});const j=await r.json();
+      const d=s.parse(j);if(d&&d.name)return Object.assign({src:s.name},d)}catch(e){}
+  }
+  /* 联网也没查到 → 用厂商前缀码识别品牌+品类，帮你预填 */
+  const g=guessByPrefix(code);if(g)return Object.assign({src:'厂商码识别'},g);
+  return null}
+
+/* ============ 核心算法（逻辑层） ============ */
+function addDays(d,n){const x=new Date(d);x.setDate(x.getDate()+n);return x}
+function addMonths(d,n){const x=new Date(d);x.setMonth(x.getMonth()+n);return x}
+function shelfDays(n,u){return u==='天'?n:u==='年'?n*365:n*30}
+function calc(item){
+  const p=new Date(item.prod),a=shelfDays(item.shelf.n,item.shelf.u);
+  const exp=addDays(p,a),best=addDays(p,Math.round(a*2/3));
+  let open=null;
+  if(item.openMonths){open=addMonths(item.prod?new Date(item.openDate||item.prod):new Date(),item.openMonths)}
+  const ref=open&&open<exp?open:exp;              // 化妆品取开封期与保质期较近者
+  const now=new Date(),days=Math.ceil((ref-now)/864e5);
+  const bestDays=Math.ceil((best-now)/864e5);
+  let st='ok';if(days<0)st='exp';else if(days<=(db.cfg()[item.cat==='药品'?'med':item.cat==='化妆品'?'cos':'food']))st='soon';
+  return{exp,ref,best,days,bestDays,st}}
+function parseDateFromOCR(t){
+  t=(t||'').replace(/[：:]/g,'-').replace(/[年月.]/g,'-').replace(/日/g,'').trim();
+  let m=t.match(/(20\d{2})-(\d{1,2})-(\d{1,2})/);
+  if(m)return`${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;
+  m=t.match(/(20\d{2})(\d{2})(\d{2})/);if(m)return`${m[1]}-${m[2]}-${m[3]}`;
+  return null}
+function parseShelfLife(t){t=t||'';let m=t.match(/(\d+)\s*(个月|月|天|年|M|D|Y)/i);
+  if(m){const u={个月:'月',月:'月',天:'天',年:'年',M:'月',D:'天',Y:'年'}[m[2].toUpperCase()];return{n:+m[1],u}}
+  return null}
+function parseProductInfo(raw){  // OCR/条码合并解析入口
+  const date=parseDateFromOCR(raw)||new Date().toISOString().slice(0,10);
+  const shelf=parseShelfLife(raw)||{n:12,u:'月'};return{prod:date,shelf}}
+
+/* ============ 菜谱推荐 ============ */
+const RECIPES=[
+ {n:'番茄炒蛋',ing:['番茄','鸡蛋'],step:'番茄切块炒出汁，下蛋液翻炒，盐少许。',tip:'番茄临期正好熟透更出味'},
+ {n:'牛奶鸡蛋饼',ing:['牛奶','鸡蛋','面粉'],step:'牛奶+蛋+面粉调糊，平底锅小火煎两面。',tip:'临期牛奶务必加热做熟，更安全'},
+ {n:'蒜蓉炒时蔬',ing:['青菜','菠菜','油麦菜'],step:'热油爆蒜，下菜大火快炒，盐调味。',tip:'叶菜快蔫时尽快吃，营养流失多'},
+ {n:'酸奶水果碗',ing:['酸奶','香蕉','苹果'],step:'酸奶打底，铺水果块，可加坚果。',tip:'临期酸奶当天食用，勿再冷藏久放'},
+ {n:'红烧鸡腿',ing:['鸡腿','姜','酱油'],step:'鸡腿焯水，炒糖色，加酱油焖20分钟。',tip:'禽肉临期建议彻底炖熟'},
+ {n:'皮蛋瘦肉粥',ing:['大米','猪肉','皮蛋'],step:'米煮开花，下肉丝皮蛋，小火熬稠。',tip:'肉类临期做粥易熟透'},
+ {n:'鸡蛋牛奶布丁',ing:['牛奶','鸡蛋','糖'],step:'牛奶加热拌蛋液，过筛蒸10分钟。',tip:'临期牛奶做甜品不浪费'},
+ {n:'凉拌豆腐',ing:['豆腐','葱','香油'],step:'豆腐焯水，淋香油生抽撒葱。',tip:'豆腐临期当天吃完最保险'}];
+function recommendRecipes(){
+  const soon=db.get().filter(i=>calc(i).days<=3).map(i=>i.name);
+  let scored=RECIPES.map(r=>{const hit=r.ing.filter(x=>soon.some(s=>s.includes(x)||x.includes(s))).length;
+    const urg=Math.max(0,3-Math.min(...db.get().filter(i=>r.ing.some(x=>i.name.includes(x))).map(i=>calc(i).days),99));
+    return{r,score:hit*2+urg,hit}}).filter(x=>x.hit>0);
+  if(!scored.length)scored=RECIPES.slice(0,3).map(r=>({r,score:0,hit:0}));
+  return scored.sort((a,b)=>b.score-a.score).slice(0,3)}
+
+/* ============ 渲染 ============ */
+let curFilter='全部';
+function go(p,btn){
+  document.querySelectorAll('.page').forEach(e=>e.classList.remove('on'));
+  document.getElementById('p-'+p).classList.add('on');
+  document.querySelectorAll('nav button').forEach(e=>e.classList.remove('on'));
+  if(btn)btn.classList.add('on');
+  if(p==='home')renderHome();if(p==='list')renderList();if(p==='remind')renderRemind();if(p==='me')renderMe()}
+function renderHome(){
+  const all=db.get();let ok=0,soon=0,exp=0;
+  all.forEach(i=>{const s=calc(i).st;s==='ok'?ok++:s==='soon'?soon++:exp++});
+  sok.textContent=ok;ssoon.textContent=soon;sexp.textContent=exp;
+  const sorted=all.map(i=>({i,c:calc(i)})).sort((a,b)=>a.c.days-b.c.days).slice(0,3);
+  urgent.innerHTML=sorted.length?sorted.map(({i,c})=>
+    `<div class="item" style="border-left-color:${c.st==='exp'?'var(--r)':c.st==='soon'?'var(--o)':'var(--g)'}">
+      <div class="row"><span class="n">${i.name}</span>
+      <span class="tag ${c.st==='exp'?'bg-r':c.st==='soon'?'bg-o':'bg-g'}">${c.days<0?'已过期'+(-c.days)+'天':c.days===0?'今天到期':'剩'+c.days+'天'}</span></div>
+      <div class="d">建议 ${c.best.toISOString().slice(0,10)} 前吃完 · ${i.cat}</div>
+      <div class="bar"><i style="width:${Math.max(0,Math.min(100,(c.days/ (shelfDays(i.shelf.n,i.shelf.u)||1))*100))}%;background:${c.st==='exp'?'var(--r)':c.st==='soon'?'var(--o)':'var(--g)'}"></i></div>
+     </div>`).join(''):'<div class="empty">还没有物品，去「扫码」添加第一件吧 🥫</div>';
+  renderRecipes()}
+function renderRecipes(){
+  const rs=recommendRecipes();
+  recipes.innerHTML=rs.map(({r,hit})=>`<div class="recipe"><div class="t">🍳 ${r.n} ${hit?'<span class="tag bg-o">有临期食材</span>':''}</div>
+    <div class="step">${r.step}</div><div class="step muted">💡 ${r.tip}</div></div>`).join('')}
+function renderList(){
+  const fs=['全部','食品','药品','化妆品','已过期'];
+  filt.innerHTML=fs.map(f=>`<button class="${curFilter===f?'on':''}" onclick="curFilter='${f}';renderList()">${f}</button>`).join('');
+  let arr=db.get().map(i=>({i,c:calc(i)}));
+  if(curFilter==='已过期')arr=arr.filter(x=>x.c.st==='exp');else if(curFilter!=='全部')arr=arr.filter(x=>x.i.cat===curFilter);
+  arr.sort((a,b)=>a.c.days-b.c.days);
+  list.innerHTML=arr.length?arr.map(({i,c})=>
+    `<div class="item" style="border-left-color:${c.st==='exp'?'var(--r)':c.st==='soon'?'var(--o)':'var(--g)'}" onclick="editItem('${i.id}')">
+      <div class="row"><span class="n">${i.name}</span><span class="tag ${c.st==='exp'?'bg-r':c.st==='soon'?'bg-o':'bg-g'}">${c.days<0?'过期'+(-c.days)+'天':c.days===0?'今天':'剩'+c.days+'天'}</span></div>
+      <div class="d">${i.brand?i.brand+' · ':''}生产 ${i.prod} · 保质 ${i.shelf.n}${i.shelf.u}${i.openMonths?' · 开封'+i.openMonths+'月':''}</div>
+      <div class="d">建议 ${c.best.toISOString().slice(0,10)} 前吃完 · 到期 ${c.ref.toISOString().slice(0,10)}</div>
+     </div>`).join(''):'<div class="empty">该分类下暂无物品</div>'}
+function renderRemind(){
+  const cfg=db.cfg();cfgFood.value=cfg.food;cfgMed.value=cfg.med;cfgCos.value=cfg.cos;
+  const arr=db.get().map(i=>({i,c:calc(i)})).filter(x=>x.c.st!=='ok').sort((a,b)=>a.c.days-b.c.days);
+  remindList.innerHTML=arr.length?arr.map(({i,c})=>`<div class="item" style="border-left-color:${c.st==='exp'?'var(--r)':'var(--o)'}">
+    <div class="n">${c.st==='exp'&&i.cat==='药品'?'⚠️ ':'⏰ '}${i.name}</div>
+    <div class="d">${c.st==='exp'?(i.cat==='药品'?'已过期，请勿服用！':'已过期 '+(-c.days)+' 天'):'还有 '+c.days+' 天到期，建议尽快吃完'}</div></div>`).join('')
+    :'<div class="empty">暂无需要提醒的物品 👌</div>'}
+function renderMe(){const u=navigator.serviceWorker&&navigator.serviceWorker.controller;pwaTip.textContent=u?'✅ 已作为独立应用运行（可离线）':'提示：当前在浏览器内打开，点上方「一键安装」或手机菜单「添加到主屏幕」即可像 App 使用';btnInstall.style.display=deferredPrompt?'':'none'}
+function saveCfg(){localStorage.setItem(CFG,JSON.stringify({food:+cfgFood.value,med:+cfgMed.value,cos:+cfgCos.value}));alert('设置已保存')}
+
+/* ============ 交互 ============ */
+function openModal(html){modal.innerHTML=html;mask.classList.add('on')}
+function closeModal(){mask.classList.remove('on')}
+mask.onclick=e=>{if(e.target===mask)closeModal()};
+
+function saveItem(d){
+  const arr=db.get();d.id=d.id||('id'+Date.now());
+  const idx=arr.findIndex(x=>x.id===d.id);idx>=0?arr[idx]=d:arr.push(d);
+  db.set(arr);closeModal();go('list',document.querySelector('nav button[data-p="list"]'))}
+
+function form(d){d=d||{cat:'食品',shelf:{n:12,u:'月'},prod:new Date().toISOString().slice(0,10)};
+  openModal(`<h3>${d.id?'编辑物品':'添加物品'}</h3>
+    <label>名称</label><input id="f-name" value="${d.name||''}" placeholder="如 纯牛奶">
+    <label>分类（决定提醒提前量）</label><select id="f-cat" onchange="if(value==='化妆品')document.getElementById('f-open').style.display='block'">
+      ${['食品','药品','化妆品'].map(c=>`<option ${d.cat===c?'selected':''}>${c}</option>`).join('')}</select>
+    <label>品牌</label><input id="f-brand" value="${d.brand||''}">
+    <label>生产日期</label><input type="date" id="f-prod" value="${d.prod}">
+    <div style="display:flex;gap:8px"><div style="flex:1"><label>保质期数值</label><input type="number" id="f-sn" value="${d.shelf.n}"></div>
+      <div style="flex:1"><label>单位</label><select id="f-su">${['天','月','年'].map(u=>`<option ${d.shelf.u===u?'selected':''}>${u}</option>`).join('')}</select></div></div>
+    <div id="f-open" style="display:${d.cat==='化妆品'?'block':'none'}"><label>开封后使用期（月，可选）</label><input type="number" id="f-om" value="${d.openMonths||''}" placeholder="如 12"></div>
+    <div style="display:flex;gap:8px;margin-top:10px"><button onclick="submitForm('${d.id||''}')">保存并提醒</button><button class="gh" onclick="closeModal()">取消</button></div>`)}
+function submitForm(id){
+  const g=i=>document.getElementById(i).value;
+  const d={id,cat:g('f-cat'),name:g('f-name')||'未命名',brand:g('f-brand'),prod:g('f-prod'),
+    shelf:{n:+g('f-sn')||12,u:g('f-su')},openMonths:g('f-om')?+g('f-om'):null};
+  if(!g('f-name')){alert('请填写名称');return}saveItem(d)}
+function editItem(id){const it=db.get().find(x=>x.id===id);if(it)form(it)}
+function delItem(id){if(confirm('确定删除？')){db.set(db.get().filter(x=>x.id!==id));closeModal();renderList()}}
+
+/* 扫码 */
+let camStream=null,barcodeDetector=null;
+async function toggleCam(){
+  const v=document.getElementById('cam');
+  if(camStream){camStream.getTracks().forEach(t=>t.stop());camStream=null;v.style.display='none';btnCam.textContent='开启摄像头';return}
+  try{
+    if(!('BarcodeDetector' in window))throw new Error('no-api');
+    barcodeDetector=new BarcodeDetector({formats:['ean_13','ean_8','code_128','qr_code']});
+    camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+    v.srcObject=camStream;v.style.display='block';btnCam.textContent='关闭摄像头';scanLoop()}
+  catch(e){scanRes.innerHTML='<div class="warn">当前环境不支持摄像头条码识别（需 localhost 或 https）。可用下方「输入条码」体验识别流程。</div>'}
+}
+async function scanLoop(){
+  if(!camStream)return;
+  try{const codes=await barcodeDetector.detect(document.getElementById('cam'));
+    if(codes.length){const code=codes[0].rawValue;camStream.getTracks().forEach(t=>t.stop());camStream=null;document.getElementById('cam').style.display='none';btnCam.textContent='开启摄像头';await onBarcode(code);return}}
+  catch(e){}
+  setTimeout(scanLoop,400)}
+function manualScan(){
+  const m=document.getElementById('bcModal');if(m)m.style.display='flex';
+  const inp=document.getElementById('bcInput');if(inp){inp.value='';setTimeout(()=>inp.focus(),100)}
+}
+function closeBcModal(){const m=document.getElementById('bcModal');if(m)m.style.display='none'}
+function submitBcModal(){
+  const inp=document.getElementById('bcInput');const c=(inp&&inp.value||'').trim();
+  if(!c){alert('请先输入条码数字');return}
+  closeBcModal();onBarcode(c);
+}
+async function onBarcode(code){
+  scanRes.innerHTML='<div class="tip">正在查询 '+code+' …</div>';
+  const d=await lookupBarcode(code);
+  if(!d){scanRes.innerHTML='<div class="warn">该条码未收录，也无法识别品牌。已为你打开手动录入，填上名称、分类和保质期即可保存。</div>';form({name:'',cat:'食品',shelf:{n:12,u:'月'}});return}
+  if(d.partial){  /* 厂商码识别：认出品牌/国别，让用户补全具体品名和保质期 */
+    scanRes.innerHTML=`<div class="tip">🔎 通过${d.by}识别到：<b>${d.brand}</b><br>该品牌下具体型号未精确收录，已按「${d.cat}」为你预填，补一下名称和保质期即可保存。</div>`;
+    form({name:(d.brand&&d.brand.indexOf('(')>=0?d.brand.split('(')[0].trim():d.brand||'')+' ',cat:d.cat,shelf:{n:d.cat==='化妆品'?36:d.cat==='药品'?24:12,u:'月'},openMonths:d.cat==='化妆品'?12:undefined});return}
+  scanRes.innerHTML=`<div class="tip">✅ ${d.src} 命中<br><b>${d.name}</b> · ${d.brand||''}</div>
+    <div style="display:flex;gap:8px"><button onclick='saveItem(${JSON.stringify({name:d.name,brand:d.brand,cat:d.cat,prod:new Date().toISOString().slice(0,10),shelf:d.shelf})})'>加入清单</button>
+    <button class="gh" onclick="form({name:'${d.name.replace(/'/g,'')}',brand:'${(d.brand||'').replace(/'/g,'')}',cat:'${d.cat}',shelf:${JSON.stringify(d.shelf)}})">修改后再加</button></div>`}
+
+/* OCR */
+async function doOCR(ev){
+  const f=ev.target.files[0];if(!f)return;
+  ocrRes.innerHTML='<div class="tip">识别中…（首次加载引擎较慢）</div>';
+  try{
+    if(!window.Tesseract){await new Promise((res,rej)=>{const s=document.createElement('script');
+      s.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';s.onload=res;s.onerror=rej;document.head.appendChild(s)})}
+    const {data}=await Tesseract.recognize(f,'eng');
+    const txt=data.text||'';const info=parseProductInfo(txt);
+    const date=parseDateFromOCR(txt),shelf=parseShelfLife(txt);
+    ocrRes.innerHTML=`<div class="tip">识别文本：${(txt.slice(0,60)||'（空）').replace(/</g,'')}</div>
+      ${date?'':'<div class="warn">未识别到日期，请手动确认</div>'}
+      <div style="display:flex;gap:8px"><button onclick='form({prod:"${date||''}",shelf:${JSON.stringify(shelf||{n:12,u:'月'})}})'>用识别结果添加</button></div>`;
+  }catch(e){ocrRes.innerHTML='<div class="warn">OCR 加载失败（需联网），可手动录入</div>'}}
+
+/* 其它 */
+function loadDemo(){
+  const t=new Date(),iso=d=>new Date(t.getTime()+d*864e5).toISOString().slice(0,10);
+  db.set([{id:'d1',name:'纯牛奶',cat:'食品',brand:'伊利',prod:iso(-20),shelf:{n:6,u:'月'}},
+    {id:'d2',name:'切片面包',cat:'食品',brand:'',prod:iso(-5),shelf:{n:7,u:'天'}},
+    {id:'d3',name:'感冒灵颗粒',cat:'药品',brand:'',prod:iso(-300),shelf:{n:24,u:'月'}},
+    {id:'d4',name:'精华液',cat:'化妆品',brand:'兰蔻',prod:iso(-60),shelf:{n:36,u:'月'},openMonths:12},
+    {id:'d5',name:'番茄',cat:'食品',brand:'',prod:iso(-2),shelf:{n:7,u:'天'}}]);
+  go('home',document.querySelector('nav button[data-p="home"]'))}
+function clearAll(){if(confirm('确定清空全部数据？')){localStorage.removeItem(KEY);renderHome();renderList()}}
+function exportData(){const b=new Blob([JSON.stringify(db.get(),null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='保质期管家备份.json';a.click()}
+
+/* PWA 安装 */
+let deferredPrompt=null;
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;if(document.getElementById('p-me').classList.contains('on'))renderMe()});
+function doInstall(){if(deferredPrompt){deferredPrompt.prompt();deferredPrompt=null}}
+if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{})}
+
+renderHome();
+</script>
+</body>
+</html>
