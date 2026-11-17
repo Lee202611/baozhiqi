@@ -17,12 +17,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      APP_HOST: lee202611.github.io
-      START_URL: https://lee202611.github.io/baozhiqi/
-      PACKAGE_ID: com.lee.baozhiqi
-      APP_NAME: 保质期管家
       KEYSTORE_PASS: baozhiqi2026
       KEY_ALIAS: baozhiqi
+      BUBBLEWRAP_KEYSTORE_PASSWORD: baozhiqi2026
+      BUBBLEWRAP_KEY_PASSWORD: baozhiqi2026
     steps:
       - uses: actions/checkout@v4
 
@@ -38,9 +36,22 @@ jobs:
       - name: 安装 Bubblewrap CLI
         run: npm i -g @bubblewrap/cli
 
-      - name: 生成 twa-manifest.json
+      - name: 写 Bubblewrap 配置（JDK/SDK 路径）
         run: |
-          mkdir -p android && cd android
+          mkdir -p ~/.bubblewrap
+          cat > ~/.bubblewrap/config.json <<EOF
+          {
+            "jdkPath": "$JAVA_HOME",
+            "androidSdkPath": "$ANDROID_HOME"
+          }
+          EOF
+          echo "config.json:"; cat ~/.bubblewrap/config.json
+
+      - name: 准备工程目录与 twa-manifest.json
+        working-directory: android
+        run: |
+          mkdir -p android
+          cd android
           cat > twa-manifest.json <<'EOF'
           {
             "packageId": "com.lee.baozhiqi",
@@ -54,10 +65,7 @@ jobs:
             "display": "standalone",
             "iconUrl": "https://lee202611.github.io/baozhiqi/icon-512.png",
             "splashScreenFadeOutDuration": 300,
-            "signingKey": {
-              "path": "android.keystore",
-              "alias": "baozhiqi"
-            },
+            "signingKey": { "path": "android.keystore", "alias": "baozhiqi" },
             "appVersionName": "1.0.0",
             "appVersionCode": 1,
             "minSdkVersion": 21,
@@ -65,43 +73,39 @@ jobs:
           }
           EOF
           node -e "const fs=require('fs');const p='twa-manifest.json';const m=JSON.parse(fs.readFileSync(p));m.appVersionName='${{ github.event.inputs.version_name }}';m.appVersionCode=parseInt('${{ github.event.inputs.version_code }}')||1;fs.writeFileSync(p,JSON.stringify(m,null,2));"
-          echo "generated:"; cat twa-manifest.json
 
-      - name: 生成签名密钥（首次；已有则复用）
-        working-directory: android
+      - name: 生成签名密钥（存在则复用）
+        working-directory: android/android
         run: |
-          if [ -f android.keystore ]; then
-            echo "复用已有 keystore"
-          else
+          if [ -f android.keystore ]; then echo "复用已有 keystore"; else
             keytool -genkeypair -v -keystore android.keystore -alias "$KEY_ALIAS" \
               -keyalg RSA -keysize 2048 -validity 10000 \
               -storepass "$KEYSTORE_PASS" -keypass "$KEYSTORE_PASS" \
               -dname "CN=Baozhiqi, OU=App, O=Lee, L=Shenzhen, ST=Guangdong, C=CN"
           fi
 
-      - name: 生成 Android 工程并构建签名 APK
-        working-directory: android
-        env:
-          BUBBLEWRAP_KEYSTORE_PASSWORD: ${{ env.KEYSTORE_PASS }}
-          BUBBLEWRAP_KEY_PASSWORD: ${{ env.KEYSTORE_PASS }}
+      - name: 生成工程并构建签名 APK
+        working-directory: android/android
         run: |
-          bubblewrap init --manifest=https://lee202611.github.io/baozhiqi/manifest.webmanifest --directory=. || true
-          bubblewrap build --skipPwaValidation --skipSigning=false
+          yes | bubblewrap update --skipVersionUpgrade || true
+          bubblewrap build --skipPwaValidation
 
-      - name: 验证签名方案
-        working-directory: android
+      - name: 验证签名
+        working-directory: android/android
         run: |
-          APKSIGNER=$(find $ANDROID_HOME/build-tools -name apksigner | sort | tail -1)
-          echo "apksigner: $APKSIGNER"
-          "$APKSIGNER" verify --verbose --print-certs app-release-signed.apk || true
-          keytool -list -v -keystore android.keystore -alias "$KEY_ALIAS" -storepass "$KEYSTORE_PASS" | grep -A1 SHA256 | head -2 > fingerprint.txt
-          echo "SHA256 指纹："; cat fingerprint.txt
+          APK=$(ls app-release-signed.apk 2>/dev/null || true)
+          if [ -n "$APK" ]; then
+            APKSIGNER=$(find $ANDROID_HOME/build-tools -name apksigner | sort | tail -1)
+            "$APKSIGNER" verify --verbose --print-certs app-release-signed.apk || true
+            keytool -list -v -keystore android.keystore -alias "$KEY_ALIAS" -storepass "$KEYSTORE_PASS" | grep SHA256 | head -1 > fingerprint.txt
+          fi
+          ls -la
 
       - name: 上传产物
         uses: actions/upload-artifact@v4
         with:
           name: 保质期管家-签名APK
           path: |
-            android/app-release-signed.apk
-            android/android.keystore
-            android/fingerprint.txt
+            android/android/app-release-signed.apk
+            android/android/android.keystore
+            android/android/fingerprint.txt
