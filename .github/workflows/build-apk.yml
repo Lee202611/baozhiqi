@@ -1,0 +1,107 @@
+name: 打签名 APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_name:
+        description: "版本号名（如 1.0.0）"
+        default: "1.0.0"
+      version_code:
+        description: "版本号（整数，每次升级+1）"
+        default: "1"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      APP_HOST: lee202611.github.io
+      START_URL: https://lee202611.github.io/baozhiqi/
+      PACKAGE_ID: com.lee.baozhiqi
+      APP_NAME: 保质期管家
+      KEYSTORE_PASS: baozhiqi2026
+      KEY_ALIAS: baozhiqi
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: 安装 Bubblewrap CLI
+        run: npm i -g @bubblewrap/cli
+
+      - name: 生成 twa-manifest.json
+        run: |
+          mkdir -p android && cd android
+          cat > twa-manifest.json <<'EOF'
+          {
+            "packageId": "com.lee.baozhiqi",
+            "host": "lee202611.github.io",
+            "name": "保质期管家",
+            "shortName": "保质期管家",
+            "startUrl": "/baozhiqi/",
+            "themeColor": "#ffffff",
+            "navigationColor": "#ffffff",
+            "backgroundColor": "#ffffff",
+            "display": "standalone",
+            "iconUrl": "https://lee202611.github.io/baozhiqi/icon-512.png",
+            "splashScreenFadeOutDuration": 300,
+            "signingKey": {
+              "path": "android.keystore",
+              "alias": "baozhiqi"
+            },
+            "appVersionName": "1.0.0",
+            "appVersionCode": 1,
+            "minSdkVersion": 21,
+            "targetSdkVersion": 34
+          }
+          EOF
+          node -e "const fs=require('fs');const p='twa-manifest.json';const m=JSON.parse(fs.readFileSync(p));m.appVersionName='${{ github.event.inputs.version_name }}';m.appVersionCode=parseInt('${{ github.event.inputs.version_code }}')||1;fs.writeFileSync(p,JSON.stringify(m,null,2));"
+          echo "generated:"; cat twa-manifest.json
+
+      - name: 生成签名密钥（首次；已有则复用）
+        working-directory: android
+        run: |
+          if [ -f android.keystore ]; then
+            echo "复用已有 keystore"
+          else
+            keytool -genkeypair -v -keystore android.keystore -alias "$KEY_ALIAS" \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass "$KEYSTORE_PASS" -keypass "$KEYSTORE_PASS" \
+              -dname "CN=Baozhiqi, OU=App, O=Lee, L=Shenzhen, ST=Guangdong, C=CN"
+          fi
+
+      - name: 生成 Android 工程并构建签名 APK
+        working-directory: android
+        env:
+          BUBBLEWRAP_KEYSTORE_PASSWORD: ${{ env.KEYSTORE_PASS }}
+          BUBBLEWRAP_KEY_PASSWORD: ${{ env.KEYSTORE_PASS }}
+        run: |
+          bubblewrap init --manifest=https://lee202611.github.io/baozhiqi/manifest.webmanifest --directory=. || true
+          bubblewrap build --skipPwaValidation --skipSigning=false
+
+      - name: 验证签名方案
+        working-directory: android
+        run: |
+          APKSIGNER=$(find $ANDROID_HOME/build-tools -name apksigner | sort | tail -1)
+          echo "apksigner: $APKSIGNER"
+          "$APKSIGNER" verify --verbose --print-certs app-release-signed.apk || true
+          keytool -list -v -keystore android.keystore -alias "$KEY_ALIAS" -storepass "$KEYSTORE_PASS" | grep -A1 SHA256 | head -2 > fingerprint.txt
+          echo "SHA256 指纹："; cat fingerprint.txt
+
+      - name: 上传产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: 保质期管家-签名APK
+          path: |
+            android/app-release-signed.apk
+            android/android.keystore
+            android/fingerprint.txt
